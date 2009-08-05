@@ -1,0 +1,28 @@
+On the slave Nagios box, you will first want to disable OSHP/OCSP as we're
+going to use a replacement processor using perfdata files. 
+ 
+obsess_over_hosts=0
+obsess_over_services=0
+
+ 
+Then you will require the following additional config: 
+ 
+# Enable Performance data processing.
+process_performance_data=1
+
+# Files to which Nagios will write data. In this setup
+# they will be named pipes.
+host_perfdata_file=/path/to/host-perfdata.fifo
+service_perfdata_file=/path/to/service-perfdata.fifo
+
+# This is exactly what will be sent to send_NSCA. Do not change it.
+host_perfdata_file_template=$HOSTNAME$\t$HOSTSTATEID$\t$HOSTOUTPUT$|$HOSTPERFDATA$
+service_perfdata_file_template=$HOSTNAME$\t$SERVICEDESC$\t$SERVICESTATEID$\t$SERVICEOUTPUT$|$SERVICEPERFDATA$
+
+# If using Nagios 2, use the 'w' mode
+host_perfdata_file_mode=p
+service_perfdata_file_mode=p
+
+# We don't want to process any command, so set this to 0
+host_perfdata_file_processing_interval=0
+service_perfdata_file_processing_interval=0

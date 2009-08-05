@@ -1,0 +1,197 @@
+#!/bin/sh
+#
+# ocpd	Obsessive Compulsive Host/Service Processor Daemon for Nagios
+#
+# chkconfig:	345 84 26
+#
+# description:	Obsessive Compulsive Host/Service Processor Daemon for Nagios
+#
+# processname:	ocpd
+#
+# $Id$
+
+# Source function library
+. /etc/rc.d/init.d/functions
+
+# Get service config - may override defaults
+[ -f /etc/sysconfig/ocpd ] && . /etc/sysconfig/ocpd
+
+# Get network config
+. /etc/sysconfig/network
+
+# Check that networking is up.
+if is_yes "${NETWORKING}"; then
+	if [ ! -f /var/lock/subsys/network -a "$1" != stop -a "$1" != status ]; then
+		msg_network_down "Nagios OCHS Processor Daemon"
+		exit 1
+	fi
+else
+	exit 0
+fi
+
+nagios_cfg=/etc/nagios/nagios.cfg
+nsca=/usr/sbin/send_nsca
+nsca_cfg=/etc/nagios/send_nsca.cfg
+nsca_central_file=/etc/nagios/send_nsca-central
+
+# configtest itself
+# must return non-zero if check failed
+# output is discarded if checkconfig is ran without details
+configtest() {
+	local val ret=0
+
+	# check for nagios setup
+	val=$(awk -F= '/^process_performance_data/{print $2}' $nagios_cfg)
+	if [ "$val" != "1" ]; then
+		echo >&2 "'process_performance_data' must be '1' in $nagios_cfg"
+		ret=1
+	fi
+	val=$(awk -F= '/^host_perfdata_file_mode/{print $2}' $nagios_cfg)
+	if [ "$val" != "p" ]; then
+		echo >&2 "'host_perfdata_file_mode' must be 'p' in $nagios_cfg"
+		ret=1
+	fi
+
+	val=$(awk -F= '/^service_perfdata_file_mode/{print $2}' $nagios_cfg)
+	if [ "$val" != "p" ]; then
+		echo >&2 "'service_perfdata_file_mode' must be 'p' in $nagios_cfg"
+		ret=1
+	fi
+
+	val=$(awk -F= '/^process_performance_data/{print $2}' $nagios_cfg)
+	if [ "$val" != "1" ]; then
+		echo >&2 "'process_performance_data' must be '1' in $nagios_cfg"
+		ret=1
+	fi
+
+	val=$(awk -F= '/^host_perfdata_file_processing_interval/{print $2}' $nagios_cfg)
+	if [ "$val" != "0" ]; then
+		echo >&2 "'host_perfdata_file_processing_interval' must be '0' in $nagios_cfg"
+		ret=1
+	fi
+
+	val=$(awk -F= '/^service_perfdata_file_processing_interval/{print $2}' $nagios_cfg)
+	if [ "$val" != "0" ]; then
+		echo >&2 "'service_perfdata_file_processing_interval' must be '0' in $nagios_cfg"
+		ret=1
+	fi
+
+	# check for nsca
+	val=$(awk '!/#/ { print }' $nsca_central_file)
+	if [ -z "$val" ]; then
+		echo >&2 "central host not set in $nsca_central_file"
+		ret=1
+	fi
+
+	return $ret
+}
+
+# wrapper for configtest
+checkconfig() {
+	local details=${1:-0}
+
+	if [ $details = 1 ]; then
+		# run config test and display report (status action)
+		show "Checking %s configuration" "<service_name>"; busy
+		local out
+		out=`configtest 2>&1`
+		RETVAL=$?
+		if [ $RETVAL = 0 ]; then
+			ok
+		else
+			fail
+		fi
+		[ "$out" ] && echo >&2 "$out"
+	else
+		# run config test and abort with nice message if failed
+		# (for actions checking status before action).
+		configtest >/dev/null 2>&1
+		RETVAL=$?
+		if [ $RETVAL != 0 ]; then
+			show "Checking %s configuration" "<service_name>"; fail
+			nls 'Configuration test failed. See details with %s "checkconfig"' $0
+			exit $RETVAL
+		fi
+	fi
+}
+
+
+start() {
+	# Check if the service is already running?
+	if [ -f /var/lock/subsys/nagios-ocpd ]; then
+		msg_already_running "Nagios OCHS Processor Daemon"
+		return
+	fi
+
+	checkconfig
+	msg_starting "Nagios OCHS Processor Daemon"
+
+	local nsca_host=$(awk '!/#/ { print }' $nsca_central_file)
+	local hostfifo=$(awk -F= '/^host_perfdata_file=/{print $2}' $nagios_cfg)
+	local servicefifo=$(awk -F= '/^service_perfdata_file=/{print $2}' $nagios_cfg)
+
+	# XXX daemon() can't do --user and --fork without start-stop-daemon
+	export RC_LOGGING=no
+	daemon --user nagios --fork /usr/lib/nagios/ocpd -f $hostfifo,$servicefifo -n $nsca -H $nsca_host -c $nsca_cfg -r 1
+
+	RETVAL=$?
+	[ $RETVAL -eq 0 ] && touch /var/lock/subsys/nagios-ocpd
+}
+
+stop() {
+	if [ ! -f /var/lock/subsys/nagios-ocpd ]; then
+		msg_not_running "Nagios OCHS Processor Daemon"
+		return
+	fi
+
+	# Stop daemons.
+	msg_stopping "Nagios OCHS Processor Daemon"
+	killproc OCP_daemon
+	rm -f /var/lock/subsys/nagios-ocpd
+}
+
+condrestart() {
+	if [ ! -f /var/lock/subsys/nagios-ocpd ]; then
+		msg_not_running "Nagios OCHS Processor Daemon"
+		RETVAL=$1
+		return
+	fi
+
+	checkconfig
+	stop
+	start
+}
+
+RETVAL=0
+# See how we were called.
+case "$1" in
+  start)
+  	start
+	;;
+  stop)
+  	stop
+	;;
+  restart)
+	checkconfig
+	stop
+	start
+	;;
+  try-restart)
+	condrestart 0
+	;;
+  force-reload)
+	condrestart 7
+	;;
+  checkconfig|configtest)
+	checkconfig 1
+	;;
+  status)
+	status OCP_daemon
+	RETVAL=$?
+	;;
+  *)
+	msg_usage "$0 {start|stop|restart|try-restart|reload|force-reload|checkconfig|status}"
+	exit 3
+esac
+
+exit $RETVAL
