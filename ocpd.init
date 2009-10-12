@@ -114,6 +114,11 @@ configtest() {
 		ret=1
 	fi
 
+	# the ocpd tests send_nsca, but it's result is lost due --fork
+	local nsca_host=$(awk '!/#/ { print }' $nsca_central_file)
+	echo >&2 "Checking $nsca..."
+	$nsca -H $nsca_host -c $nsca_cfg < /dev/null || ret=$?
+
 	return $ret
 }
 
@@ -160,6 +165,15 @@ start() {
 	local nsca_host=$(awk '!/#/ { print }' $nsca_central_file)
 	local hostfifo=$(awk -F= '/^host_perfdata_file=/{print $2}' $nagios_cfg)
 	local servicefifo=$(awk -F= '/^service_perfdata_file=/{print $2}' $nagios_cfg)
+
+	if [ ! -p "$hostfifo" ]; then
+		mkfifo -m 600 "$hostfifo"
+		chown nagios:nagios "$hostfifo"
+	fi
+	if [ ! -p "$servicefifo" ]; then
+		mkfifo -m 600 "$servicefifo"
+		chown nagios:nagios "$servicefifo"
+	fi
 
 	# XXX daemon() can't do --user and --fork without start-stop-daemon
 	export RC_LOGGING=no
