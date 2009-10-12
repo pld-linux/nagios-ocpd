@@ -41,38 +41,63 @@ configtest() {
 	local val ret=0
 
 	# check for nagios setup
-	val=$(awk -F= '/^process_performance_data/{print $2}' $nagios_cfg)
+	val=$(awk -F= '/^process_performance_data=/{print $2}' $nagios_cfg)
 	if [ "$val" != "1" ]; then
 		echo >&2 "'process_performance_data' must be '1' in $nagios_cfg"
 		ret=1
 	fi
-	val=$(awk -F= '/^host_perfdata_file_mode/{print $2}' $nagios_cfg)
+
+	# host perfdata file
+	val=$(awk -F= '/^host_perfdata_file_mode=/{print $2}' $nagios_cfg)
 	if [ "$val" != "p" ]; then
 		echo >&2 "'host_perfdata_file_mode' must be 'p' in $nagios_cfg"
 		ret=1
 	fi
 
-	val=$(awk -F= '/^service_perfdata_file_mode/{print $2}' $nagios_cfg)
-	if [ "$val" != "p" ]; then
-		echo >&2 "'service_perfdata_file_mode' must be 'p' in $nagios_cfg"
+	val=$(awk -F= '/^host_perfdata_file=/{print $2}' $nagios_cfg)
+	if [ -z "$val" ]; then
+		echo >&2 "'host_perfdata_file' not set in $nagios_cfg. set it to /var/spool/nagios/host-perfdata.fifo"
 		ret=1
 	fi
 
-	val=$(awk -F= '/^process_performance_data/{print $2}' $nagios_cfg)
-	if [ "$val" != "1" ]; then
-		echo >&2 "'process_performance_data' must be '1' in $nagios_cfg"
-		ret=1
-	fi
-
-	val=$(awk -F= '/^host_perfdata_file_processing_interval/{print $2}' $nagios_cfg)
+	val=$(awk -F= '/^host_perfdata_file_processing_interval=/{print $2}' $nagios_cfg)
 	if [ "$val" != "0" ]; then
 		echo >&2 "'host_perfdata_file_processing_interval' must be '0' in $nagios_cfg"
 		ret=1
 	fi
 
-	val=$(awk -F= '/^service_perfdata_file_processing_interval/{print $2}' $nagios_cfg)
+	val=$(awk -F= '/^host_perfdata_file_template=/{print $2}' $nagios_cfg)
+	req='$HOSTNAME$\t$HOSTSTATEID$\t$HOSTOUTPUT$|$HOSTPERFDATA$'
+	reqt='$HOSTNAME$\\t$HOSTSTATEID$\\t$HOSTOUTPUT$|$HOSTPERFDATA$'
+	if [ "$val" != "$req" ]; then
+		echo >&2 -E "'host_perfdata_file_template' must be '$reqt' in $nagios_cfg"
+		ret=1
+	fi
+
+	# service perfdata file
+	val=$(awk -F= '/^service_perfdata_file_mode=/{print $2}' $nagios_cfg)
+	if [ "$val" != "p" ]; then
+		echo >&2 "'service_perfdata_file_mode' must be 'p' in $nagios_cfg"
+		ret=1
+	fi
+
+	val=$(awk -F= '/^service_perfdata_file_processing_interval=/{print $2}' $nagios_cfg)
 	if [ "$val" != "0" ]; then
 		echo >&2 "'service_perfdata_file_processing_interval' must be '0' in $nagios_cfg"
+		ret=1
+	fi
+
+	val=$(awk -F= '/^service_perfdata_file_template=/{print $2}' $nagios_cfg)
+	req='$HOSTNAME$\t$SERVICEDESC$\t$SERVICESTATEID$\t$SERVICEOUTPUT$|$SERVICEPERFDATA$'
+	reqt='$HOSTNAME$\\t$SERVICEDESC$\\t$SERVICESTATEID$\\t$SERVICEOUTPUT$|$SERVICEPERFDATA$'
+	if [ "$val" != "$req" ]; then
+		echo >&2 "'service_perfdata_file_template' must be '$reqt' in $nagios_cfg"
+		ret=1
+	fi
+
+	val=$(awk -F= '/^service_perfdata_file=/{print $2}' $nagios_cfg)
+	if [ -z "$val" ]; then
+		echo >&2 "'service_perfdata_file' not set in $nagios_cfg. set it to /var/spool/nagios/service-perfdata.fifo"
 		ret=1
 	fi
 
@@ -80,6 +105,12 @@ configtest() {
 	val=$(awk '!/#/ { print }' $nsca_central_file)
 	if [ -z "$val" ]; then
 		echo >&2 "central host not set in $nsca_central_file"
+		ret=1
+	fi
+
+	val=$(awk -F= '/^password/{print $2}' $nsca_cfg)
+	if [ -z "$val" ]; then
+		echo >&2 "'password' must be set in $nsca_cfg"
 		ret=1
 	fi
 
@@ -138,6 +169,21 @@ start() {
 	[ $RETVAL -eq 0 ] && touch /var/lock/subsys/nagios-ocpd
 }
 
+ocpd_status() {
+	status OCP_daemon
+	RETVAL=$?
+
+	local nsca_host=$(awk '!/#/ { print }' $nsca_central_file)
+	local hostfifo=$(awk -F= '/^host_perfdata_file=/{print $2}' $nagios_cfg)
+	local servicefifo=$(awk -F= '/^service_perfdata_file=/{print $2}' $nagios_cfg)
+
+	echo "Host fifo: $hostfifo"
+	echo "Service FIFO: $servicefifo"
+	echo "send_nsca: $nsca"
+	echo "NSCA Host: $nsca_host"
+	echo "send_nsca config: $nsca_cfg"
+}
+
 stop() {
 	if [ ! -f /var/lock/subsys/nagios-ocpd ]; then
 		msg_not_running "Nagios OCHS Processor Daemon"
@@ -186,8 +232,7 @@ case "$1" in
 	checkconfig 1
 	;;
   status)
-	status OCP_daemon
-	RETVAL=$?
+	ocpd_status
 	;;
   *)
 	msg_usage "$0 {start|stop|restart|try-restart|reload|force-reload|checkconfig|status}"
