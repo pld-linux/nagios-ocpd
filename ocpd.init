@@ -92,7 +92,7 @@ checkconfig() {
 
 	if [ $details = 1 ]; then
 		# run config test and display report (status action)
-		show "Checking %s configuration" "<service_name>"; busy
+		show "Checking %s configuration" "Nagios OCHS Processor Daemon"; busy
 		local out
 		out=`configtest 2>&1`
 		RETVAL=$?
@@ -108,7 +108,7 @@ checkconfig() {
 		configtest >/dev/null 2>&1
 		RETVAL=$?
 		if [ $RETVAL != 0 ]; then
-			show "Checking %s configuration" "<service_name>"; fail
+			show "Checking %s configuration" "Nagios OCHS Processor Daemon"; fail
 			nls 'Configuration test failed. See details with %s "checkconfig"' $0
 			exit $RETVAL
 		fi
