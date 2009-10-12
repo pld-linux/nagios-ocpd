@@ -91,7 +91,7 @@ configtest() {
 	req='$HOSTNAME$\t$SERVICEDESC$\t$SERVICESTATEID$\t$SERVICEOUTPUT$|$SERVICEPERFDATA$'
 	reqt='$HOSTNAME$\\t$SERVICEDESC$\\t$SERVICESTATEID$\\t$SERVICEOUTPUT$|$SERVICEPERFDATA$'
 	if [ "$val" != "$req" ]; then
-		echo >&2 "'service_perfdata_file_template' must be '$reqt' in $nagios_cfg"
+		echo >&2 -E "'service_perfdata_file_template' must be '$reqt' in $nagios_cfg"
 		ret=1
 	fi
 
