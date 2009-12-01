@@ -37,8 +37,8 @@ server.
 
 %prep
 %setup -qcT
-install %{SOURCE0} .
-cp %{SOURCE1} .
+install -p %{SOURCE0} .
+cp -a %{SOURCE1} .
 
 %build
 %{__perl} -c ocpd.pl
@@ -46,10 +46,10 @@ cp %{SOURCE1} .
 %install
 rm -rf $RPM_BUILD_ROOT
 install -d $RPM_BUILD_ROOT{%{_libdir},%{_spooldir},/etc/rc.d/init.d}
-install ocpd.pl $RPM_BUILD_ROOT%{_libdir}/ocpd
+install -p ocpd.pl $RPM_BUILD_ROOT%{_libdir}/ocpd
 touch $RPM_BUILD_ROOT%{_spooldir}/host-perfdata.fifo
 touch $RPM_BUILD_ROOT%{_spooldir}/service-perfdata.fifo
-install %{SOURCE2} $RPM_BUILD_ROOT/etc/rc.d/init.d/%{name}
+install -p %{SOURCE2} $RPM_BUILD_ROOT/etc/rc.d/init.d/%{name}
 
 %clean
 rm -rf $RPM_BUILD_ROOT
