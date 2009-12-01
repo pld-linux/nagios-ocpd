@@ -2,7 +2,7 @@
 Summary:	Obsessive Compulsive Host/Service Processor Daemon for Nagios
 Name:		nagios-ocpd
 Version:	1.0
-Release:	0.13
+Release:	1
 License:	GPL v2+
 Group:		Networking/Daemons
 Source0:	ocpd.pl
