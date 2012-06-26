@@ -215,7 +215,7 @@ sub usage {
   print "Usage:\n";
   print "  $PROGNAME -f <fifo>[,<fifo2>[,<fifoN>...]] -H <nsca_host> [ -n <nsca_bin> ]\n";
   print "  [ -p <nsca_port> ] [ -t <nsca_timeout> ] [ -c <nsca_config> ]\n";
-  print "  [ -r <reaper_delay> ] [ -m <max_queue> ]\n\n";
+  print "  [ -r <reaper_delay> ] [ -l <file>] [ -m <max_queue> ]\n\n";
 
   print "Options:\n";
   print "  -f <fifo>\tComma-separated list of fifo files to read from\n";
@@ -229,6 +229,8 @@ sub usage {
   print "  -r <seconds>\tHow long to wait between each nsca flushes\n";
   print "\t\t0 = as data arrive. Default: 1 second\n";
   print "\t\tWARNING: Setting this to 0 can be very resource-consuming!\n\n";
+
+  print "  -l <file>\tLog commands that would be written to nsca to <file>\n\n";
 
   print "  -m <slots>\tMax queue size if reaper_delay is greater than 0\n";
   print "\t\tA flush will be forced if the queue reach this size\n\n";
