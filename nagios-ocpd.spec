@@ -39,6 +39,7 @@ server.
 %setup -qcT
 install -p %{SOURCE0} .
 cp -a %{SOURCE1} .
+%{__sed} -i -e 's,/usr/local/nagios/bin/send_nsca,/usr/sbin/send_nsca,' ocpd.pl
 
 %build
 %{__perl} -c ocpd.pl
