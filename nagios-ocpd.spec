@@ -1,7 +1,7 @@
 %include	/usr/lib/rpm/macros.perl
 Summary:	Obsessive Compulsive Host/Service Processor Daemon for Nagios
 Name:		nagios-ocpd
-Version:	1.0
+Version:	1.1
 Release:	1
 License:	GPL v2+
 Group:		Networking/Daemons
@@ -38,8 +38,7 @@ server.
 %prep
 %setup -qcT
 install -p %{SOURCE0} .
-cp -a %{SOURCE1} .
-%{__sed} -i -e 's,/usr/local/nagios/bin/send_nsca,/usr/sbin/send_nsca,' ocpd.pl
+cp -p %{SOURCE1} .
 
 %build
 %{__perl} -c ocpd.pl
@@ -48,6 +47,7 @@ cp -a %{SOURCE1} .
 rm -rf $RPM_BUILD_ROOT
 install -d $RPM_BUILD_ROOT{%{_libdir},%{_spooldir},/etc/rc.d/init.d}
 install -p ocpd.pl $RPM_BUILD_ROOT%{_libdir}/ocpd
+%{__sed} -i -e 's,/usr/local/nagios/bin/send_nsca,/usr/sbin/send_nsca,' $RPM_BUILD_ROOT%{_libdir}/ocpd
 touch $RPM_BUILD_ROOT%{_spooldir}/host-perfdata.fifo
 touch $RPM_BUILD_ROOT%{_spooldir}/service-perfdata.fifo
 install -p %{SOURCE2} $RPM_BUILD_ROOT/etc/rc.d/init.d/%{name}

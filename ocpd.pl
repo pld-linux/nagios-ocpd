@@ -4,6 +4,7 @@
 # Copyright (C) 2007 Thomas Guyot-Sionnest <tguyot@gmail.com>
 # Original code Copyright (C) 2006, 2007 Mark Steele
 #       http://www.control-alt-del.org/code
+# Copyright (C) 2009-2012 Elan Ruusamäe <glen@delfi.ee>
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -24,12 +25,12 @@ use Getopt::Std;
 use POSIX;
 use strict;
 use warnings;
-use vars qw($PROGNAME $VERSION $READ_SIZE $MAX_LINE_LENGTH $CHILD_TIMEOUT %args);
+use vars qw($PROGNAME $VERSION $READ_SIZE $MAX_LINE_LENGTH $CHILD_TIMEOUT $RESULT_SEPARATOR %args);
 
 #####################################################################
 #
 $PROGNAME = 'OCP_daemon';
-$VERSION = '1.0rc4';
+$VERSION = '1.1';
 #
 # Try to get that much data each read. Normally a named pipe
 # can't hold more that 4096 bytes.
@@ -42,12 +43,19 @@ $MAX_LINE_LENGTH = 8192;
 # updates on a very slow network you'll likely want to increase this.
 $CHILD_TIMEOUT = 60;
 #
+#
+# nsca 2.9 wants different result separator:
+# When submitting multiple simultaneous results, separate each set with the ETB
+# character (^W or 0x17)
+# use -M (multiline) argument to switch to 2.9 behaviour
+$RESULT_SEPARATOR = "";
+
 #####################################################################
 
 # Ignore HUPs in case we've been lazily started from the shell
 $SIG{HUP} = 'IGNORE';
 
-getopts("f:n:H:p:t:c:r:m:l:h", \%args);
+getopts("f:n:H:p:t:c:r:m:Ml:h", \%args);
 
 # Print usage if missing options or -h
 if (!$args{'f'} || !$args{'H'} || $args{'h'}) {
@@ -63,6 +71,7 @@ my @fifos = split (/,/, $args{'f'});
 my $reaper_delay = $args{'r'} || 1;
 my $max_queue = $args{'m'} || 0;
 my $log_file = $args{'l'} || undef;
+$RESULT_SEPARATOR = "\x17" if $args{'M'};
 
 # Construct send_nsca command
 my $nsca = $args{'n'} || '/usr/local/nagios/bin/send_nsca';
@@ -187,7 +196,7 @@ sub reader {
   # Be safe here...
   $data .= $buf;
   while (my $marker = index ($data, "\n") + 1) {
-    push (@queue, substr ($data, 0, $marker));
+    push (@queue, substr ($data, 0, $marker). $RESULT_SEPARATOR);
     $data = substr ($data, $marker);
 
     if ($max_queue && $max_queue <= @queue) {
@@ -234,6 +243,8 @@ sub usage {
 
   print "  -m <slots>\tMax queue size if reaper_delay is greater than 0\n";
   print "\t\tA flush will be forced if the queue reach this size\n\n";
+
+  print "  -M\t\tSwitch to multiline processing. Needs nsca 2.9\n";
 
   exit 1;
 }

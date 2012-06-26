@@ -165,6 +165,8 @@ start() {
 	local nsca_host=$(awk '!/#/ { print }' $nsca_central_file)
 	local hostfifo=$(awk -F= '/^host_perfdata_file=/{print $2}' $nagios_cfg)
 	local servicefifo=$(awk -F= '/^service_perfdata_file=/{print $2}' $nagios_cfg)
+	local nsca_version=$($nsca | awk '/^NSCA Client/{ split($NF, v, /\./); printf("%d.%d\n", v[1], v[2]) }')
+	local nsca_multiline=$(awk -vv=$nsca_version 'BEGIN { if (v >= 2.9) print "-M" }')
 
 	if [ ! -p "$hostfifo" ]; then
 		mkfifo -m 600 "$hostfifo"
@@ -177,7 +179,7 @@ start() {
 
 	# XXX daemon() can't do --user and --fork without start-stop-daemon
 	export RC_LOGGING=no
-	daemon --user nagios --fork /usr/lib/nagios/ocpd -f $hostfifo,$servicefifo -n $nsca -H $nsca_host -c $nsca_cfg -r 1
+	daemon --user nagios --fork /usr/lib/nagios/ocpd -f $hostfifo,$servicefifo -n $nsca -H $nsca_host -c $nsca_cfg -r 1 $nsca_multiline
 
 	RETVAL=$?
 	[ $RETVAL -eq 0 ] && touch /var/lock/subsys/nagios-ocpd
@@ -190,12 +192,16 @@ ocpd_status() {
 	local nsca_host=$(awk '!/#/ { print }' $nsca_central_file)
 	local hostfifo=$(awk -F= '/^host_perfdata_file=/{print $2}' $nagios_cfg)
 	local servicefifo=$(awk -F= '/^service_perfdata_file=/{print $2}' $nagios_cfg)
+	local nsca_version=$($nsca | awk '/^NSCA Client/{ split($NF, v, /\./); printf("%d.%d\n", v[1], v[2]) }')
+	local nsca_multiline=$(awk -vv=$nsca_version 'BEGIN { if (v >= 2.9) print "-M" }')
 
 	echo "Host fifo: $hostfifo"
 	echo "Service FIFO: $servicefifo"
 	echo "send_nsca: $nsca"
 	echo "NSCA Host: $nsca_host"
 	echo "send_nsca config: $nsca_cfg"
+	echo "NSCA version: $nsca_version"
+	echo "NSCA multiline: $([ "$nsca_multiline" = "-M" ] && echo yes || echo no)"
 }
 
 stop() {
