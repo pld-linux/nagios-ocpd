@@ -102,7 +102,10 @@ $signal->add;
 my @queue;
 my $log_fh;
 if ($log_file) {
-	open($log_fh, '>', $log_file) or die ("Can't write: $log_file");
+  unless (open($log_fh, '>', $log_file)) {
+    print "Can't write: $log_file\n";
+    exit 1;
+  }
 }
 
 ## VERY IMPORTANT: You have to open the pipe in O_RDWR, POSIX has rules about
@@ -141,7 +144,7 @@ sub reaper {
       open(NSCA, "|$nsca >/dev/null 2>/dev/null") or die "Failed to spawn send_nsca: $!";
       print NSCA @queue;
       close(NSCA);
-	  print $log_fh @queue if $log_fh;
+      print $log_fh @queue if $log_fh;
       exit;
 
     } elsif (!defined ($fork)) {
