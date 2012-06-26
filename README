@@ -1,12 +1,12 @@
 On the slave Nagios box, you will first want to disable OSHP/OCSP as we're
-going to use a replacement processor using perfdata files. 
- 
+going to use a replacement processor using perfdata files.
+
 obsess_over_hosts=0
 obsess_over_services=0
 
- 
-Then you will require the following additional config: 
- 
+
+Then you will require the following additional config:
+
 # Enable Performance data processing.
 process_performance_data=1
 
