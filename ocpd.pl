@@ -47,7 +47,7 @@ $CHILD_TIMEOUT = 60;
 # Ignore HUPs in case we've been lazily started from the shell
 $SIG{HUP} = 'IGNORE';
 
-getopts("f:n:H:p:t:c:r:m:h", \%args);
+getopts("f:n:H:p:t:c:r:m:l:h", \%args);
 
 # Print usage if missing options or -h
 if (!$args{'f'} || !$args{'H'} || $args{'h'}) {
@@ -62,6 +62,7 @@ if (!$args{'f'} || !$args{'H'} || $args{'h'}) {
 my @fifos = split (/,/, $args{'f'});
 my $reaper_delay = $args{'r'} || 1;
 my $max_queue = $args{'m'} || 0;
+my $log_file = $args{'l'} || undef;
 
 # Construct send_nsca command
 my $nsca = $args{'n'} || '/usr/local/nagios/bin/send_nsca';
@@ -99,8 +100,12 @@ my $signal = signal_new(SIGCHLD, \&reap_chld);
 $signal->add;
 
 my @queue;
+my $log_fh;
+if ($log_file) {
+	open($log_fh, '>', $log_file) or die ("Can't write: $log_file");
+}
 
-## VERY IMPORTANT: You have to open the pipe in O_RDWR, POSIX has rules about 
+## VERY IMPORTANT: You have to open the pipe in O_RDWR, POSIX has rules about
 ##                 using polling calls on pipes, and can't do any on O_RDONLY
 ##
 foreach my $fifo (@fifos) {
@@ -136,6 +141,7 @@ sub reaper {
       open(NSCA, "|$nsca >/dev/null 2>/dev/null") or die "Failed to spawn send_nsca: $!";
       print NSCA @queue;
       close(NSCA);
+	  print $log_fh @queue if $log_fh;
       exit;
 
     } elsif (!defined ($fork)) {
@@ -174,13 +180,13 @@ sub reader {
     die;
   }
 
-  # 
+  #
   # Be safe here...
   $data .= $buf;
   while (my $marker = index ($data, "\n") + 1) {
     push (@queue, substr ($data, 0, $marker));
     $data = substr ($data, $marker);
-      
+
     if ($max_queue && $max_queue <= @queue) {
       $timer->remove; # Reaper will re-add itself
       reaper($timer);
