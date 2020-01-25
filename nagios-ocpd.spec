@@ -1,4 +1,3 @@
-%include	/usr/lib/rpm/macros.perl
 Summary:	Obsessive Compulsive Host/Service Processor Daemon for Nagios
 Name:		nagios-ocpd
 Version:	1.1
